@@ -1,0 +1,105 @@
+<body>
+  <h1>What is it?</h1>
+  <p>
+    This is a code to test the behavior of a microtask in relation to
+    <code>requestAnimationFrame</code>. Will a new microtask executed in rAF be
+    performed in the current task or in the next one?
+  </p>
+
+  <main>
+    <section>
+      <h2>Logs</h2>
+      <pre id="LOGS_OUTPUT">[]</pre>
+    </section>
+    <section>
+      <h2>Script</h2>
+      <button onclick="test()" autofocus>test()</button>
+      <script>
+        const DELAY = 100
+        const logs = []
+        let end = false
+
+        function log(msg) {
+          if (!end) {
+            logs.push(msg)
+          }
+          // get the last log and end the logging
+          else if (logs.length) {
+            logs.push(msg)
+
+            LOGS_OUTPUT.innerText = JSON.stringify(logs, null, 2)
+
+            logs.length = 0
+          }
+        }
+
+        function test() {
+          LOGS_OUTPUT.innerText = '[]'
+          end = false
+
+          scheduleRAF(1, false)
+          scheduleRAF(2, true)
+          function scheduleRAF(i, shouldEnd) {
+            setTimeout(() => {
+              // this function can be performed in the range of ~0-100ms
+              // depending on the browser heuristics and the state of the page.
+              requestAnimationFrame(() => {
+                log(`requestAnimationFrame№${i}`)
+                Promise.resolve(`microtask№${i}`)
+                  .then(log)
+                  .then(() => (end = shouldEnd))
+              })
+            }, DELAY)
+          }
+
+          let i = 0
+          // fill the queue to own all tasks before and after rAF
+          while (i++ < 100) {
+            setTimeout(
+              (i) => {
+                Promise.resolve(`microtask№${i}`).then(log)
+                log(`task№${i}`)
+              },
+              DELAY,
+              i,
+            )
+          }
+
+          // wait until all tasks will be scheduled to form the queue
+          const start = Date.now()
+          while (Date.now() - start < DELAY * 2) {}
+        }
+      </script>
+    </section>
+  </main>
+</body>
+<script style="display: none">
+  // prevent event loop from a slow down
+  const cb = () => {
+    if (document.body.offsetTop || Math.random() < 2) setTimeout(cb)
+  }
+  cb()
+</script>
+<style>
+  body {
+    font-family: monospace;
+  }
+  p {
+    font-size: 1.2em;
+  }
+  code,
+  script {
+    color: darkslategray;
+  }
+  script {
+    display: block;
+    white-space-collapse: preserve;
+    text-wrap: nowrap;
+  }
+  main {
+    display: flex;
+  }
+  section {
+    min-width: 15rem;
+  }
+</style>
